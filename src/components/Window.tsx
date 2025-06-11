@@ -1,12 +1,12 @@
 
 import React, { useState, useRef } from 'react';
-import { WindowData } from './Desktop';
+import { WindowData } from '../types/desktop';
 
 interface WindowProps {
   window: WindowData;
   onClose: () => void;
   onFocus: () => void;
-  onUpdatePosition: (id: string, x: number, y: number) => void;
+  onUpdatePosition: (x: number, y: number) => void;
   onMinimize: () => void;
 }
 
@@ -22,22 +22,23 @@ export const Window: React.FC<WindowProps> = ({
   const windowRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('title-bar')) {
-      setIsDragging(true);
-      setDragOffset({
-        x: e.clientX - window.x,
-        y: e.clientY - window.y,
-      });
-      onFocus();
-    }
+    if ((e.target as HTMLElement).closest('.window-controls')) return;
+    
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - window.x,
+      y: e.clientY - window.y,
+    });
+    onFocus();
   };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (isDragging) {
-      const newX = Math.max(0, Math.min(window.innerWidth - window.width, e.clientX - dragOffset.x));
-      const newY = Math.max(24, Math.min(window.innerHeight - window.height, e.clientY - dragOffset.y));
-      onUpdatePosition(window.id, newX, newY);
-    }
+    if (!isDragging) return;
+
+    const newX = Math.max(0, Math.min(e.clientX - dragOffset.x, globalThis.innerWidth - window.width));
+    const newY = Math.max(24, Math.min(e.clientY - dragOffset.y, globalThis.innerHeight - window.height));
+    
+    onUpdatePosition(newX, newY);
   };
 
   const handleMouseUp = () => {
@@ -55,51 +56,46 @@ export const Window: React.FC<WindowProps> = ({
     }
   }, [isDragging, dragOffset]);
 
+  if (window.isMinimized) return null;
+
   return (
     <div
       ref={windowRef}
-      className="absolute bg-white border-2 border-black shadow-lg select-none"
+      className="absolute bg-white border-2 border-black shadow-lg"
       style={{
         left: window.x,
         top: window.y,
         width: window.width,
         height: window.height,
         zIndex: window.zIndex,
-        imageRendering: 'pixelated',
       }}
-      onMouseDown={handleMouseDown}
-      onClick={onFocus}
+      onMouseDown={() => onFocus()}
     >
-      {/* Title Bar */}
-      <div className="title-bar bg-gray-200 border-b border-black h-6 flex items-center justify-between px-2 cursor-move">
-        <div className="flex items-center space-x-1">
-          <button
-            onClick={onClose}
-            className="w-3 h-3 bg-white border border-black hover:bg-gray-300 text-xs leading-none"
-          >
-            ×
-          </button>
+      {/* Title bar */}
+      <div
+        className="bg-gray-200 border-b border-black h-6 flex items-center justify-between px-2 cursor-move select-none"
+        onMouseDown={handleMouseDown}
+      >
+        <span className="text-sm font-mono">{window.title}</span>
+        <div className="window-controls flex space-x-1">
           <button
             onClick={onMinimize}
-            className="w-3 h-3 bg-white border border-black hover:bg-gray-300 text-xs leading-none"
+            className="w-4 h-4 bg-yellow-400 border border-black hover:bg-yellow-500"
           >
-            -
+            <span className="text-xs">-</span>
+          </button>
+          <button
+            onClick={onClose}
+            className="w-4 h-4 bg-red-400 border border-black hover:bg-red-500"
+          >
+            <span className="text-xs">×</span>
           </button>
         </div>
-        
-        <span className="text-xs font-mono flex-1 text-center">{window.title}</span>
-        
-        <div className="w-8"></div>
       </div>
 
-      {/* Window Content */}
-      <div className="h-full pb-6 overflow-hidden">
+      {/* Content */}
+      <div className="p-4 h-full overflow-auto">
         {window.content}
-      </div>
-
-      {/* Resize Handle */}
-      <div className="absolute bottom-0 right-0 w-3 h-3 bg-gray-300 border-l border-t border-black cursor-nw-resize">
-        <div className="w-full h-full bg-gradient-to-br from-white to-gray-400"></div>
       </div>
     </div>
   );
